@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
+const clamp01 = (value) => Math.min(1, Math.max(0, value));
+
 const stages = [
   {
     eyebrow: 'Punto de partida',
@@ -285,6 +287,34 @@ function HardwareScene({ progress }) {
       box(0.92, 0.1, 0.12, mat.steel, 3.55 + i * 0.72, 0.8 + i * 0.36, -1.85);
     }
 
+    const impactGroup = new THREE.Group();
+    impactGroup.position.set(5.02, 1.05, -0.62);
+    scene.add(impactGroup);
+    const impactMaterials = [
+      new THREE.MeshStandardMaterial({ color: '#9f184d', roughness: 0.28, metalness: 0.2 }),
+      new THREE.MeshStandardMaterial({ color: '#f1b62b', roughness: 0.32, metalness: 0.12 }),
+      new THREE.MeshStandardMaterial({ color: '#151412', roughness: 0.38, metalness: 0.18 }),
+    ];
+    [
+      [-0.85, 0.38, 0.18, 0.35],
+      [-0.34, 0.8, -0.08, 0.55],
+      [0.2, 1.15, 0.14, 0.72],
+      [0.72, 0.62, -0.18, 0.45],
+    ].forEach(([x, y, z, h], index) => {
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(0.38, h, 0.36), impactMaterials[index % impactMaterials.length]);
+      tower.position.set(x, y, z);
+      tower.castShadow = true;
+      tower.receiveShadow = true;
+      impactGroup.add(tower);
+    });
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.25, 0.035, 16, 80),
+      new THREE.MeshStandardMaterial({ color: '#9f184d', roughness: 0.25, metalness: 0.35 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(0, 0.2, 0);
+    impactGroup.add(ring);
+
     const craneTruck = new THREE.Group();
     scene.add(craneTruck);
 
@@ -408,6 +438,8 @@ function HardwareScene({ progress }) {
       pathPoints,
       startingPositions,
       wheels,
+      impactGroup,
+      ring,
     };
 
     const resize = () => {
@@ -451,7 +483,7 @@ function HardwareScene({ progress }) {
   useEffect(() => {
     const objects = sceneObjects.current;
     if (!objects) return;
-    const { craneTruck, boomPivot, hookGroup, carriedBlock, blocks, pathPoints, startingPositions, camera } = objects;
+    const { craneTruck, boomPivot, hookGroup, carriedBlock, blocks, pathPoints, startingPositions, camera, impactGroup, ring } = objects;
     const raw = progress * stages.length;
     const active = Math.min(stages.length - 1, Math.max(0, Math.floor(raw)));
     const local = raw - active;
@@ -482,9 +514,21 @@ function HardwareScene({ progress }) {
       objects.carriedLabel.material.needsUpdate = true;
     }
 
-    camera.position.x = THREE.MathUtils.lerp(6.4, 4.6, progress);
-    camera.position.z = THREE.MathUtils.lerp(9.8, 8.2, progress);
-    camera.lookAt(THREE.MathUtils.lerp(-1.2, 1.6, progress), 1.25, 0.45);
+    const reveal = clamp01((progress - 0.82) / 0.18);
+    if (reveal > 0) {
+      const angle = -0.9 + reveal * Math.PI * 2;
+      const radius = THREE.MathUtils.lerp(8.8, 6.6, reveal);
+      camera.position.set(4.95 + Math.cos(angle) * radius, 4.2 + Math.sin(reveal * Math.PI) * 1.1, -0.62 + Math.sin(angle) * radius);
+      camera.lookAt(4.95, 1.3, -0.62);
+    } else {
+      camera.position.x = THREE.MathUtils.lerp(6.4, 4.6, progress);
+      camera.position.z = THREE.MathUtils.lerp(9.8, 8.2, progress);
+      camera.lookAt(THREE.MathUtils.lerp(-1.2, 1.6, progress), 1.25, 0.45);
+    }
+
+    impactGroup.scale.setScalar(0.65 + reveal * 0.45);
+    impactGroup.rotation.y = reveal * Math.PI * 2;
+    ring.rotation.z = progress * Math.PI * 3;
 
     blocks.forEach((block, index) => {
       if (index < active) {
@@ -504,6 +548,33 @@ function HardwareScene({ progress }) {
   }, [progress]);
 
   return <canvas ref={canvasRef} className="scene-canvas" aria-label="Ferreteria 3D interactiva" />;
+}
+
+function BlueprintOverlay({ progress }) {
+  const dash = 760 - progress * 760;
+  const dashFast = 520 - progress * 520;
+
+  return (
+    <div className="blueprint-overlay" aria-hidden="true">
+      <svg viewBox="0 0 1200 900" preserveAspectRatio="none">
+        <path
+          className="blueprint-line major"
+          style={{ strokeDashoffset: dash }}
+          d="M88 152 H422 V314 H610 V214 H948 V540 H772 V704 H260 V612 H88 Z"
+        />
+        <path
+          className="blueprint-line"
+          style={{ strokeDashoffset: dashFast }}
+          d="M160 250 H338 V456 H566 M690 284 H870 V476 H1010 M210 690 L404 516 L590 692 L780 486 L1006 664"
+        />
+        <path
+          className="blueprint-line accent"
+          style={{ strokeDashoffset: 620 - progress * 620 }}
+          d="M178 168 C244 84 430 92 512 194 S764 334 914 170 M176 788 C332 620 520 602 690 730 S944 814 1040 672"
+        />
+      </svg>
+    </div>
+  );
 }
 
 function StagePanel({ active }) {
@@ -561,7 +632,7 @@ function JourneyStrip() {
 
 function WhatsAppDemo() {
   return (
-    <section className="demo-grid" id="demo">
+    <section className="demo-grid immersive-panel" id="demo">
       <div className="section-copy">
         <span className="label">Demo de funcionamiento</span>
         <h2>Un WhatsApp que ordena antes de saturar al equipo</h2>
@@ -618,7 +689,7 @@ function GrowthSystem() {
   ];
 
   return (
-    <section className="growth">
+    <section className="growth immersive-panel">
       <div className="section-copy centered">
         <span className="label">Motor de crecimiento</span>
         <h2>De 300 seguidores a demanda local organizada</h2>
@@ -668,6 +739,25 @@ function CommandCenter() {
   );
 }
 
+function RevealPanel() {
+  return (
+    <section className="reveal-panel">
+      <div className="reveal-orbit" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="section-copy centered">
+        <span className="label">Revelacion final 360</span>
+        <h2>La obra termina mostrando un centro digital vivo, no una pagina suelta</h2>
+        <p>
+          Al final del recorrido, los problemas ya no quedan dispersos: quedan apilados como una estructura de ventas con pauta, WhatsApp, CRM, retargeting, sedes y comandos de IA.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function App() {
   const diagnosticRef = useRef(null);
   const progress = useSectionProgress(diagnosticRef);
@@ -675,6 +765,7 @@ function App() {
 
   return (
     <main>
+      <BlueprintOverlay progress={progress} />
       <section className="hero">
         <nav>
           <div className="brand">
@@ -711,6 +802,7 @@ function App() {
       <WhatsAppDemo />
       <GrowthSystem />
       <CommandCenter />
+      <RevealPanel />
 
       <footer>
         <img src="/logo-las-gemelas.jpg" alt="Logo Grupo Ferretero Las Gemelas" />
