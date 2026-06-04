@@ -19,6 +19,7 @@ const stages = [
   {
     eyebrow: 'Punto de partida',
     title: 'La atencion ya existe',
+    route: 'Entrada de obra',
     problem: 'Vistas sin sistema',
     solution: 'Contenido conectado a cotizacion',
     text:
@@ -29,6 +30,7 @@ const stages = [
   {
     eyebrow: 'Pauta inteligente',
     title: 'Potenciar lo que ya funciona',
+    route: 'Zona de alcance',
     problem: 'Alcance limitado',
     solution: 'Campanas por municipio',
     text:
@@ -39,6 +41,7 @@ const stages = [
   {
     eyebrow: 'WhatsApp comercial',
     title: 'Menos carga operativa',
+    route: 'Mostrador',
     problem: 'Mensajes repetidos',
     solution: 'IA que clasifica y prioriza',
     text:
@@ -49,6 +52,7 @@ const stages = [
   {
     eyebrow: 'Data interna',
     title: 'Clientes que no se pierden',
+    route: 'Archivo de clientes',
     problem: 'Data dormida',
     solution: 'CRM vivo',
     text:
@@ -59,6 +63,7 @@ const stages = [
   {
     eyebrow: 'Retargeting',
     title: 'Volverle a hablar al correcto',
+    route: 'Seguimiento',
     problem: 'Clientes sin seguimiento',
     solution: 'Fidelizacion y recompra',
     text:
@@ -69,6 +74,7 @@ const stages = [
   {
     eyebrow: 'Operacion desde chat',
     title: 'De lo pequeno a lo grande',
+    route: 'Centro digital',
     problem: 'Todo depende de ellas',
     solution: 'Centro digital de ventas',
     text:
@@ -92,13 +98,16 @@ const commands = [
   'Dame resumen de leads, campanas y categorias mas consultadas',
 ];
 
-function useScrollProgress() {
+function useSectionProgress(ref) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const update = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0);
+      const element = ref.current;
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      const range = Math.max(1, rect.height - window.innerHeight);
+      setProgress(Math.min(1, Math.max(0, -rect.top / range)));
     };
 
     update();
@@ -108,7 +117,7 @@ function useScrollProgress() {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
-  }, []);
+  }, [ref]);
 
   return progress;
 }
@@ -161,9 +170,9 @@ function HardwareScene({ progress }) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#f3f1ed');
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-    camera.position.set(5.8, 5.2, 8.4);
+    scene.background = new THREE.Color('#eee8df');
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(6.4, 5.6, 9.8);
     camera.lookAt(0, 1.25, 0);
 
     const ambient = new THREE.HemisphereLight('#ffffff', '#6b5b52', 2.2);
@@ -177,13 +186,18 @@ function HardwareScene({ progress }) {
     const mat = {
       floor: new THREE.MeshStandardMaterial({ color: '#d6d2c9', roughness: 0.7 }),
       wall: new THREE.MeshStandardMaterial({ color: '#f7f5f0', roughness: 0.8 }),
+      road: new THREE.MeshStandardMaterial({ color: '#4b4f50', roughness: 0.65 }),
+      concrete: new THREE.MeshStandardMaterial({ color: '#c5beb2', roughness: 0.85 }),
       shelf: new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.45 }),
       wood: new THREE.MeshStandardMaterial({ color: '#b97a3f', roughness: 0.65 }),
       burgundy: new THREE.MeshStandardMaterial({ color: '#9f184d', roughness: 0.48 }),
       yellow: new THREE.MeshStandardMaterial({ color: '#f1b62b', roughness: 0.45 }),
+      orange: new THREE.MeshStandardMaterial({ color: '#e56b21', roughness: 0.55 }),
       steel: new THREE.MeshStandardMaterial({ color: '#6f767d', roughness: 0.35, metalness: 0.25 }),
       green: new THREE.MeshStandardMaterial({ color: '#257d69', roughness: 0.55 }),
       white: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.55 }),
+      tire: new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.6 }),
+      glass: new THREE.MeshStandardMaterial({ color: '#8eb5c8', roughness: 0.2, metalness: 0.05 }),
     };
 
     const box = (w, h, d, material, x, y, z, cast = true) => {
@@ -195,22 +209,47 @@ function HardwareScene({ progress }) {
       return mesh;
     };
 
-    box(12, 0.12, 8, mat.floor, 0, -0.06, 0, false);
-    box(12, 5, 0.16, mat.wall, 0, 2.4, -4.08, false);
-    box(0.12, 5, 8, mat.wall, -6.05, 2.4, 0, false);
+    const localBox = (group, w, h, d, material, x, y, z, cast = true) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = cast;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      return mesh;
+    };
 
-    const grid = new THREE.GridHelper(12, 12, '#bdb7ad', '#ded9d0');
+    box(16, 0.12, 9.2, mat.floor, 0, -0.06, 0, false);
+    box(16, 5.3, 0.16, mat.wall, 0, 2.55, -4.68, false);
+    box(0.12, 5.3, 9.2, mat.wall, -8.05, 2.55, 0, false);
+    box(14.2, 0.05, 1.28, mat.road, 0, 0.02, 2.95, false);
+    box(5.2, 0.08, 2.25, mat.concrete, 4.95, 0.02, -0.58, false);
+    box(3.2, 0.08, 1.75, mat.concrete, -5.6, 0.02, -0.5, false);
+
+    const grid = new THREE.GridHelper(16, 16, '#bdb7ad', '#ded9d0');
     grid.position.y = 0.005;
     scene.add(grid);
 
+    for (let i = 0; i < 7; i += 1) {
+      box(0.52, 0.035, 0.08, mat.yellow, -5.8 + i * 1.8, 0.06, 2.95, false);
+    }
+
+    for (let i = 0; i < 7; i += 1) {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.48, 4), mat.orange);
+      cone.position.set(-6.2 + i * 1.9, 0.25, 2.12);
+      cone.rotation.y = Math.PI / 4;
+      cone.castShadow = true;
+      cone.receiveShadow = true;
+      scene.add(cone);
+    }
+
     for (let side = 0; side < 2; side += 1) {
-      const x = side === 0 ? -3.9 : 3.55;
-      box(0.18, 3.2, 0.18, mat.shelf, x, 1.6, -2.4);
-      box(0.18, 3.2, 0.18, mat.shelf, x + 1.6, 1.6, -2.4);
-      [0.55, 1.45, 2.35].forEach((y) => box(1.85, 0.12, 0.44, mat.shelf, x + 0.8, y, -2.4));
+      const x = side === 0 ? -6.6 : 5.6;
+      box(0.18, 3.2, 0.18, mat.shelf, x, 1.6, -3.05);
+      box(0.18, 3.2, 0.18, mat.shelf, x + 1.6, 1.6, -3.05);
+      [0.55, 1.45, 2.35].forEach((y) => box(1.85, 0.12, 0.44, mat.shelf, x + 0.8, y, -3.05));
       for (let i = 0; i < 9; i += 1) {
         const colors = [mat.burgundy, mat.wood, mat.green, mat.white, mat.yellow];
-        box(0.28, 0.24 + (i % 2) * 0.09, 0.26, colors[i % colors.length], x + 0.25 + (i % 3) * 0.47, 0.72 + Math.floor(i / 3) * 0.9, -2.1);
+        box(0.28, 0.24 + (i % 2) * 0.09, 0.26, colors[i % colors.length], x + 0.25 + (i % 3) * 0.47, 0.72 + Math.floor(i / 3) * 0.9, -2.72);
       }
     }
 
@@ -220,50 +259,122 @@ function HardwareScene({ progress }) {
         i % 2 ? mat.steel : mat.burgundy,
       );
       pipe.rotation.z = Math.PI / 2;
-      pipe.position.set(-4.6 + i * 0.12, 0.48 + i * 0.04, 1.9);
+      pipe.position.set(-6.55 + i * 0.12, 0.48 + i * 0.04, 0.8);
       pipe.castShadow = true;
       scene.add(pipe);
     }
 
-    const logoBoard = box(2.4, 1.25, 0.08, mat.white, 0, 3.1, -4.0);
+    const logoBoard = box(2.4, 1.25, 0.08, mat.white, -0.4, 3.25, -4.6);
     const loader = new THREE.TextureLoader();
     loader.load('/logo-las-gemelas.jpg', (texture) => {
       texture.colorSpace = THREE.SRGBColorSpace;
       logoBoard.material = new THREE.MeshBasicMaterial({ map: texture });
     });
 
-    const crane = new THREE.Group();
-    scene.add(crane);
-    const craneParts = [
-      [1.6, 0.16, 0.24, mat.yellow, 0, 2.9, 0],
-      [0.18, 1.85, 0.18, mat.yellow, -0.62, 1.92, 0],
-      [0.18, 1.85, 0.18, mat.yellow, 0.62, 1.92, 0],
-      [1.0, 0.18, 0.38, mat.steel, 0, 1.02, 0],
-      [0.16, 1.08, 0.16, mat.steel, 0, 2.32, 0],
-      [0.58, 0.16, 0.22, mat.steel, 0, 1.34, 0.48],
-    ];
-    craneParts.forEach(([w, h, d, material, x, y, z]) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-      mesh.position.set(x, y, z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      crane.add(mesh);
+    const solutionTexture = labelTexture('Centro Digital de Ventas', '#151412', '#ffffff');
+    const solutionSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.55, 0.9),
+      new THREE.MeshBasicMaterial({ map: solutionTexture, transparent: true }),
+    );
+    solutionSign.position.set(5.0, 2.3, -1.72);
+    solutionSign.rotation.y = -0.08;
+    scene.add(solutionSign);
+
+    for (let i = 0; i < 4; i += 1) {
+      box(0.12, 2.2, 0.12, mat.steel, 3.2 + i * 1.1, 1.1, -1.85);
+      box(0.92, 0.1, 0.12, mat.steel, 3.55 + i * 0.72, 0.8 + i * 0.36, -1.85);
+    }
+
+    const craneTruck = new THREE.Group();
+    scene.add(craneTruck);
+
+    const truckBody = new THREE.Group();
+    craneTruck.add(truckBody);
+    localBox(truckBody, 2.05, 0.42, 0.78, mat.yellow, 0.02, 0.62, 0);
+    localBox(truckBody, 0.92, 0.7, 0.72, mat.yellow, -0.96, 0.9, 0);
+    localBox(truckBody, 0.48, 0.34, 0.78, mat.glass, -1.18, 1.05, 0.02);
+    localBox(truckBody, 0.72, 0.22, 0.86, mat.steel, 0.78, 0.96, 0);
+    localBox(truckBody, 1.2, 0.12, 0.16, mat.steel, 0.78, 1.18, 0.35);
+    localBox(truckBody, 1.2, 0.12, 0.16, mat.steel, 0.78, 1.18, -0.35);
+
+    const wheels = [];
+    [-0.82, 0.72].forEach((x) => {
+      [-0.47, 0.47].forEach((z) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.14, 28), mat.tire);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(x, 0.3, z);
+        wheel.castShadow = true;
+        truckBody.add(wheel);
+        wheels.push(wheel);
+      });
     });
 
+    const boomPivot = new THREE.Group();
+    boomPivot.position.set(0.52, 1.22, 0);
+    craneTruck.add(boomPivot);
+    const boom = localBox(boomPivot, 2.35, 0.13, 0.16, mat.yellow, 1.05, 0, 0);
+    boom.rotation.z = 0.36;
+
+    const hookGroup = new THREE.Group();
+    hookGroup.position.set(2.22, 0.22, 0);
+    boomPivot.add(hookGroup);
+    localBox(hookGroup, 0.04, 0.82, 0.04, mat.steel, 0, -0.34, 0);
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 12, 28, Math.PI * 1.35), mat.steel);
+    hook.rotation.z = Math.PI;
+    hook.position.set(0, -0.78, 0);
+    hook.castShadow = true;
+    hookGroup.add(hook);
+
     const carriedBlock = new THREE.Group();
-    const carriedMesh = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.52, 0.42), mat.burgundy);
+    const carriedMesh = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.5, 0.42), mat.burgundy);
     carriedMesh.castShadow = true;
+    carriedMesh.receiveShadow = true;
+    const carriedLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.96, 0.32),
+      new THREE.MeshBasicMaterial({
+        map: labelTexture('Moviendo problema', '#9f184d', '#ffffff'),
+        transparent: true,
+      }),
+    );
+    carriedLabel.position.set(0, 0.02, 0.215);
     carriedBlock.add(carriedMesh);
-    carriedBlock.position.set(0, 0.65, 0.6);
-    crane.add(carriedBlock);
+    carriedBlock.add(carriedLabel);
+    scene.add(carriedBlock);
+
+    const pathPoints = [
+      new THREE.Vector3(-5.8, 0, 2.95),
+      new THREE.Vector3(-3.75, 0, 2.7),
+      new THREE.Vector3(-1.7, 0, 3.05),
+      new THREE.Vector3(0.25, 0, 2.72),
+      new THREE.Vector3(2.18, 0, 3.02),
+      new THREE.Vector3(4.15, 0, 2.66),
+    ];
+
+    pathPoints.forEach((point, index) => {
+      const marker = new THREE.Group();
+      localBox(marker, 0.38, 0.1, 0.38, mat.concrete, 0, 0.08, 0);
+      localBox(marker, 0.08, 0.7, 0.08, mat.steel, 0, 0.44, 0);
+      const tag = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.98, 0.34),
+        new THREE.MeshBasicMaterial({
+          map: labelTexture(stages[index].route, '#ffffff', '#151412'),
+          transparent: true,
+        }),
+      );
+      tag.position.set(0, 0.88, 0.02);
+      marker.add(tag);
+      marker.position.copy(point).add(new THREE.Vector3(0, 0, -0.95));
+      marker.rotation.y = -0.05;
+      scene.add(marker);
+    });
 
     const startingPositions = [
-      [-3.6, 0.32, 2.2],
-      [-2.15, 0.32, 1.75],
-      [-0.75, 0.32, 2.35],
-      [0.8, 0.32, 1.8],
-      [2.2, 0.32, 2.25],
-      [3.55, 0.32, 1.75],
+      [-5.78, 0.34, 1.22],
+      [-3.72, 0.34, 0.72],
+      [-1.65, 0.34, 1.12],
+      [0.25, 0.34, 0.58],
+      [2.18, 0.34, 1.02],
+      [4.15, 0.34, 0.55],
     ];
 
     const blocks = stages.map((stage, index) => {
@@ -284,7 +395,20 @@ function HardwareScene({ progress }) {
       return group;
     });
 
-    sceneObjects.current = { renderer, scene, camera, crane, blocks, carriedBlock };
+    sceneObjects.current = {
+      renderer,
+      scene,
+      camera,
+      craneTruck,
+      boomPivot,
+      hookGroup,
+      carriedBlock,
+      carriedLabel,
+      blocks,
+      pathPoints,
+      startingPositions,
+      wheels,
+    };
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -298,6 +422,12 @@ function HardwareScene({ progress }) {
     let raf = 0;
     const render = () => {
       resize();
+      const objects = sceneObjects.current;
+      if (objects) {
+        objects.wheels.forEach((wheel) => {
+          wheel.rotation.y += 0.035;
+        });
+      }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(render);
     };
@@ -321,33 +451,53 @@ function HardwareScene({ progress }) {
   useEffect(() => {
     const objects = sceneObjects.current;
     if (!objects) return;
-    const { crane, blocks, carriedBlock } = objects;
+    const { craneTruck, boomPivot, hookGroup, carriedBlock, blocks, pathPoints, startingPositions, camera } = objects;
     const raw = progress * stages.length;
     const active = Math.min(stages.length - 1, Math.max(0, Math.floor(raw)));
     const local = raw - active;
-    const start = new THREE.Vector3(-3.7 + active * 1.42, 0.32, 2.18 - (active % 2) * 0.35);
-    const stack = new THREE.Vector3(3.8, 0.32 + active * 0.58, -0.58);
-    const lift = new THREE.Vector3(THREE.MathUtils.lerp(start.x, stack.x, local), 2.05 + Math.sin(local * Math.PI) * 0.7, THREE.MathUtils.lerp(start.z, stack.z, local));
+    const start = new THREE.Vector3(...startingPositions[active]);
+    const travel = pathPoints[active];
+    const stack = new THREE.Vector3(4.95, 0.34 + active * 0.54, -0.62);
+    const truckTarget = new THREE.Vector3(
+      THREE.MathUtils.lerp(travel.x, 4.0, Math.max(0, local - 0.55) / 0.45),
+      0,
+      THREE.MathUtils.lerp(travel.z, 2.62, Math.max(0, local - 0.55) / 0.45),
+    );
+    const lift = new THREE.Vector3(
+      THREE.MathUtils.lerp(start.x, stack.x, Math.min(1, local * 1.2)),
+      1.22 + Math.sin(Math.min(1, local) * Math.PI) * 1.35 + active * 0.08,
+      THREE.MathUtils.lerp(start.z, stack.z, Math.min(1, local * 1.2)),
+    );
 
-    crane.position.set(lift.x, 0, lift.z - 0.15);
-    crane.rotation.y = Math.sin(progress * Math.PI * 2) * 0.06;
-    carriedBlock.visible = true;
+    craneTruck.position.copy(truckTarget);
+    craneTruck.rotation.y = -0.04 + Math.sin(progress * Math.PI * 3) * 0.025;
+    boomPivot.rotation.z = 0.25 + Math.sin(local * Math.PI) * 0.38;
+    hookGroup.position.y = -0.12 - Math.sin(local * Math.PI) * 0.2;
+    carriedBlock.visible = local > 0.12 && local < 0.86;
+    carriedBlock.position.copy(lift);
+    carriedBlock.rotation.y = Math.sin(progress * Math.PI * 8) * 0.08;
+    if (objects.carriedLabel.userData.active !== active) {
+      objects.carriedLabel.userData.active = active;
+      objects.carriedLabel.material.map = labelTexture(stages[active].problem, '#9f184d', '#ffffff');
+      objects.carriedLabel.material.needsUpdate = true;
+    }
+
+    camera.position.x = THREE.MathUtils.lerp(6.4, 4.6, progress);
+    camera.position.z = THREE.MathUtils.lerp(9.8, 8.2, progress);
+    camera.lookAt(THREE.MathUtils.lerp(-1.2, 1.6, progress), 1.25, 0.45);
 
     blocks.forEach((block, index) => {
       if (index < active) {
         block.visible = true;
-        block.position.set(3.8, 0.32 + index * 0.58, -0.58);
+        block.position.set(4.95, 0.34 + index * 0.54, -0.62);
         block.rotation.y = 0.05 * index;
       } else if (index === active) {
-        block.visible = local > 0.78;
-        block.position.set(3.8, 0.32 + index * 0.58, -0.58);
+        block.visible = local < 0.16 || local > 0.84;
+        block.position.copy(local > 0.84 ? new THREE.Vector3(4.95, 0.34 + index * 0.54, -0.62) : start);
+        block.rotation.y = 0.05 * index;
       } else {
         block.visible = true;
-        block.position.set(...[
-          -3.6 + index * 1.42,
-          0.32,
-          2.2 - (index % 2) * 0.45,
-        ]);
+        block.position.set(...startingPositions[index]);
         block.rotation.y = Math.sin(Date.now() * 0.001 + index) * 0.05;
       }
     });
@@ -364,7 +514,7 @@ function StagePanel({ active }) {
     <aside className="stage-card">
       <div className="stage-kicker">
         <Icon size={18} />
-        <span>{stage.eyebrow}</span>
+        <span>{stage.route} / {stage.eyebrow}</span>
       </div>
       <h2>{stage.title}</h2>
       <p>{stage.text}</p>
@@ -386,6 +536,26 @@ function StagePanel({ active }) {
         ))}
       </div>
     </aside>
+  );
+}
+
+function JourneyStrip() {
+  return (
+    <section className="journey-strip">
+      <div>
+        <span className="label">Recorrido interactivo</span>
+        <h2>Una obra donde cada problema se recoge, se mueve y se convierte en sistema</h2>
+      </div>
+      <div className="journey-steps">
+        {stages.map((stage, index) => (
+          <article key={stage.problem}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <strong>{stage.route}</strong>
+            <p>{stage.problem}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -499,7 +669,8 @@ function CommandCenter() {
 }
 
 function App() {
-  const progress = useScrollProgress();
+  const diagnosticRef = useRef(null);
+  const progress = useSectionProgress(diagnosticRef);
   const active = useMemo(() => Math.min(stages.length - 1, Math.floor(progress * stages.length)), [progress]);
 
   return (
@@ -517,18 +688,20 @@ function App() {
           <span className="label">Grupo Ferretero Las Gemelas</span>
           <h1>De visualizaciones a ventas medibles</h1>
           <p>
-            Una experiencia interactiva para ver como contenido, WhatsApp, pauta, CRM, retargeting e IA pueden convertirse en un centro digital de ventas.
+            Un recorrido por una construccion digital: el carro grua recoge fugas comerciales y las convierte en WhatsApp inteligente, pauta, CRM, retargeting e IA operativa.
           </p>
         </div>
       </section>
 
-      <section className="diagnostic">
+      <JourneyStrip />
+
+      <section className="diagnostic" ref={diagnosticRef}>
         <div className="sticky-wrap">
           <div className="scene-shell">
             <HardwareScene progress={progress} />
             <div className="scene-caption">
               <Hammer size={16} />
-              La grua recoge fugas comerciales y apila soluciones.
+              Haz scroll: el carro grua recorre la obra y levanta cada problema.
             </div>
           </div>
           <StagePanel active={active} />
