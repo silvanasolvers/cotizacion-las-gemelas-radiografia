@@ -24,6 +24,10 @@ const FRAME_COUNT = 717;
 const FRAME_RATE = 24;
 const FRAME_WIDTH = 1280;
 const FRAME_HEIGHT = 720;
+const BASE_FRAME_WIDTH = 192;
+const BASE_FRAME_HEIGHT = 108;
+const BASE_TILE_COLUMNS = 27;
+const BASE_SPRITE_PATH = "/scroll-base/base-sprite.webp";
 const FRAME_PRELOAD_RADIUS = 34;
 const BOOTSTRAP_FRAME_COUNT = 42;
 const BOOTSTRAP_CONCURRENCY = 3;
@@ -37,6 +41,26 @@ const framePath = (index) =>
 
 const frameCache = new Map();
 const fetchedFrames = new Set();
+let baseSpritePromise = null;
+
+function loadBaseSprite() {
+  if (baseSpritePromise) return baseSpritePromise;
+
+  const image = new Image();
+  image.decoding = "async";
+  image.fetchPriority = "high";
+  baseSpritePromise = new Promise((resolve) => {
+    image.onload = () => {
+      const decode = image.decode ? image.decode() : Promise.resolve();
+      decode
+        .catch(() => undefined)
+        .then(() => resolve(image));
+    };
+    image.onerror = () => resolve(null);
+  });
+  image.src = BASE_SPRITE_PATH;
+  return baseSpritePromise;
+}
 
 function loadFrame(index, priority = "auto") {
   if (index < 0 || index >= FRAME_COUNT) return Promise.resolve(null);
@@ -87,7 +111,7 @@ function getCachedFrame(index) {
   return entry?.ready ? entry.image : null;
 }
 
-function drawCoverFrame(canvas, image) {
+function drawCoverSource(canvas, image, sourceX, sourceY, sourceWidth, sourceHeight) {
   const context = canvas?.getContext("2d");
   if (!canvas || !context || !image) return;
 
@@ -101,32 +125,49 @@ function drawCoverFrame(canvas, image) {
     canvas.height = height;
   }
 
-  const frameRatio = FRAME_WIDTH / FRAME_HEIGHT;
+  const frameRatio = sourceWidth / sourceHeight;
   const canvasRatio = width / height;
-  let sourceWidth = FRAME_WIDTH;
-  let sourceHeight = FRAME_HEIGHT;
-  let sourceX = 0;
-  let sourceY = 0;
+  let visibleSourceWidth = sourceWidth;
+  let visibleSourceHeight = sourceHeight;
+  let visibleSourceX = sourceX;
+  let visibleSourceY = sourceY;
 
   if (canvasRatio > frameRatio) {
-    sourceHeight = FRAME_WIDTH / canvasRatio;
-    sourceY = (FRAME_HEIGHT - sourceHeight) / 2;
+    visibleSourceHeight = sourceWidth / canvasRatio;
+    visibleSourceY = sourceY + (sourceHeight - visibleSourceHeight) / 2;
   } else {
-    sourceWidth = FRAME_HEIGHT * canvasRatio;
-    sourceX = (FRAME_WIDTH - sourceWidth) / 2;
+    visibleSourceWidth = sourceHeight * canvasRatio;
+    visibleSourceX = sourceX + (sourceWidth - visibleSourceWidth) / 2;
   }
 
   context.clearRect(0, 0, width, height);
   context.drawImage(
     image,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
+    visibleSourceX,
+    visibleSourceY,
+    visibleSourceWidth,
+    visibleSourceHeight,
     0,
     0,
     width,
     height,
+  );
+}
+
+function drawCoverFrame(canvas, image) {
+  drawCoverSource(canvas, image, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+}
+
+function drawBaseFrame(canvas, sprite, index) {
+  const column = index % BASE_TILE_COLUMNS;
+  const row = Math.floor(index / BASE_TILE_COLUMNS);
+  drawCoverSource(
+    canvas,
+    sprite,
+    column * BASE_FRAME_WIDTH,
+    row * BASE_FRAME_HEIGHT,
+    BASE_FRAME_WIDTH,
+    BASE_FRAME_HEIGHT,
   );
 }
 
@@ -489,11 +530,19 @@ function useCanvasScrollSequence(sectionRef, canvasRef, bootstrap) {
     let lastHudActive = -1;
     let lastHudUpdate = 0;
     let lastWarmFrame = -999;
+    let baseSprite = null;
 
-    const drawFrame = (index) => {
-      const image = getCachedFrame(index);
-      if (!image || index === lastDrawnFrame) return false;
-      drawCoverFrame(canvas, image);
+    const drawFrame = (index, force = false) => {
+      if (!baseSprite) return false;
+      if (!force && index === lastDrawnFrame) return false;
+
+      drawBaseFrame(canvas, baseSprite, index);
+
+      const hdImage = getCachedFrame(index);
+      if (hdImage) {
+        drawCoverFrame(canvas, hdImage);
+      }
+
       lastDrawnFrame = index;
       return true;
     };
@@ -543,9 +592,10 @@ function useCanvasScrollSequence(sectionRef, canvasRef, bootstrap) {
       });
     };
 
-    loadFrame(0).then((image) => {
+    loadBaseSprite().then((image) => {
       if (cancelled || !image) return;
-      drawFrame(0);
+      baseSprite = image;
+      drawFrame(0, true);
       updateHud(displayedProgress, 0, true);
     });
 
@@ -559,13 +609,13 @@ function useCanvasScrollSequence(sectionRef, canvasRef, bootstrap) {
         FRAME_COUNT - 1,
         Math.max(0, Math.round(targetProgress * (FRAME_COUNT - 1))),
       );
-      const cached = getCachedFrame(requestedFrame);
+      drawFrame(requestedFrame);
 
-      if (cached) {
-        drawFrame(requestedFrame);
-      } else {
+      if (!getCachedFrame(requestedFrame)) {
         loadFrame(requestedFrame, "high").then((image) => {
-          if (!cancelled && image) drawFrame(requestedFrame);
+          if (!cancelled && image && requestedFrame === lastDrawnFrame) {
+            drawFrame(requestedFrame, true);
+          }
         });
       }
 
@@ -578,9 +628,8 @@ function useCanvasScrollSequence(sectionRef, canvasRef, bootstrap) {
     animationFrame = window.requestAnimationFrame(tick);
 
     const resize = () => {
-      if (lastDrawnFrame >= 0) {
-        const image = getCachedFrame(lastDrawnFrame);
-        if (image) drawCoverFrame(canvas, image);
+      if (lastDrawnFrame >= 0 && baseSprite) {
+        drawFrame(lastDrawnFrame, true);
       }
     };
 
@@ -714,9 +763,9 @@ function ScrollFilm() {
         />
         <div className="film-shade" />
         <div className="film-grain" />
-        {(!hud.ready || !bootstrap.complete) && (
+        {!hud.ready && (
           <div className="loader">
-            <span>Cargando secuencia completa</span>
+            <span>Preparando secuencia</span>
             <i aria-hidden="true">
               <b style={{ transform: `scaleX(${bootstrap.progress})` }} />
             </i>
