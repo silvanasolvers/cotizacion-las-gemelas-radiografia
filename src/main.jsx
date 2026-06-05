@@ -22,9 +22,12 @@ import "./styles.css";
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const FRAME_COUNT = 717;
 const FRAME_RATE = 24;
-const FRAME_PRELOAD_RADIUS = 28;
-const MAX_CACHED_FRAMES = 120;
-const TRIMMED_CACHED_FRAMES = 80;
+const FRAME_PRELOAD_RADIUS = 54;
+const BOOTSTRAP_FRAME_COUNT = 108;
+const BOOTSTRAP_CONCURRENCY = 10;
+const BACKGROUND_FETCH_CONCURRENCY = 8;
+const MAX_CACHED_FRAMES = 240;
+const TRIMMED_CACHED_FRAMES = 180;
 
 const framePath = (index) =>
   `/scroll-frames/frame-${String(index + 1).padStart(4, "0")}.webp`;
@@ -66,26 +69,96 @@ function prefetchFrame(index) {
   });
 }
 
-function useProgressiveFramePrefetch() {
+function getBootstrapIndexes() {
+  const indexes = new Set();
+
+  for (let index = 0; index < BOOTSTRAP_FRAME_COUNT; index += 1) {
+    indexes.add(index);
+  }
+
+  timeline.forEach((step) => {
+    const anchor = Math.round(step.at * (FRAME_COUNT - 1));
+    for (let offset = -5; offset <= 5; offset += 1) {
+      indexes.add(Math.min(FRAME_COUNT - 1, Math.max(0, anchor + offset)));
+    }
+  });
+
+  for (let index = FRAME_COUNT - 18; index < FRAME_COUNT; index += 1) {
+    indexes.add(index);
+  }
+
+  return Array.from(indexes).sort((a, b) => a - b);
+}
+
+function useInitialFrameBootstrap() {
+  const [loaded, setLoaded] = useState(0);
+  const [total, setTotal] = useState(1);
+  const [complete, setComplete] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
-    let index = 0;
+    const indexes = getBootstrapIndexes();
+    let cursor = 0;
+    let finished = 0;
 
-    const pump = () => {
-      if (cancelled || index >= FRAME_COUNT) return;
-      for (let batch = 0; batch < 2 && index < FRAME_COUNT; batch += 1) {
-        prefetchFrame(index);
-        index += 1;
+    setTotal(indexes.length);
+
+    const worker = async () => {
+      while (!cancelled && cursor < indexes.length) {
+        const index = indexes[cursor];
+        cursor += 1;
+        await loadFrame(index);
+        finished += 1;
+        if (!cancelled) setLoaded(finished);
       }
-      window.setTimeout(pump, 160);
     };
 
-    const start = window.setTimeout(pump, 900);
+    Promise.all(
+      Array.from({ length: BOOTSTRAP_CONCURRENCY }, () => worker()),
+    ).then(() => {
+      if (!cancelled) {
+        trimFrameCache(0);
+        setComplete(true);
+      }
+    });
+
     return () => {
       cancelled = true;
-      window.clearTimeout(start);
     };
   }, []);
+
+  return { complete, progress: clamp01(loaded / total) };
+}
+
+function useProgressiveFramePrefetch(enabled) {
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let cancelled = false;
+    let cursor = 0;
+
+    const worker = async () => {
+      while (!cancelled && cursor < FRAME_COUNT) {
+        const index = cursor;
+        cursor += 1;
+        if (!fetchedFrames.has(index)) {
+          fetchedFrames.add(index);
+          try {
+            await window.fetch(framePath(index), { cache: "force-cache" });
+          } catch {
+            fetchedFrames.delete(index);
+          }
+        }
+      }
+    };
+
+    Promise.all(
+      Array.from({ length: BACKGROUND_FETCH_CONCURRENCY }, () => worker()),
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
 }
 
 const timeline = [
@@ -364,6 +437,39 @@ function useScrollProgress(ref) {
   return progress;
 }
 
+function useSmoothedProgress(targetProgress) {
+  const [progress, setProgress] = useState(targetProgress);
+  const targetRef = useRef(targetProgress);
+  const progressRef = useRef(targetProgress);
+
+  useEffect(() => {
+    targetRef.current = targetProgress;
+  }, [targetProgress]);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const tick = () => {
+      const target = targetRef.current;
+      const current = progressRef.current;
+      const delta = target - current;
+      const distance = Math.abs(delta);
+      const easing = distance > 0.18 ? 0.48 : distance > 0.07 ? 0.34 : 0.22;
+      const next =
+        distance < 0.00035 ? target : current + delta * easing;
+
+      progressRef.current = next;
+      setProgress(next);
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  return progress;
+}
+
 function useFrameSequence(progress) {
   const requestedFrame = Math.min(
     FRAME_COUNT - 1,
@@ -375,12 +481,10 @@ function useFrameSequence(progress) {
   useEffect(() => {
     let cancelled = false;
     let idleId = 0;
-    const frame = window.requestAnimationFrame(() => {
-      setVisibleFrame(requestedFrame);
-    });
 
     loadFrame(requestedFrame).then((loaded) => {
       if (!cancelled && loaded) {
+        setVisibleFrame(requestedFrame);
         setReady(true);
       }
     });
@@ -389,6 +493,10 @@ function useFrameSequence(progress) {
       for (let offset = 1; offset <= FRAME_PRELOAD_RADIUS; offset += 1) {
         loadFrame(requestedFrame - offset);
         loadFrame(requestedFrame + offset);
+      }
+      for (let offset = FRAME_PRELOAD_RADIUS + 1; offset <= FRAME_PRELOAD_RADIUS + 44; offset += 4) {
+        prefetchFrame(requestedFrame - offset);
+        prefetchFrame(requestedFrame + offset);
       }
       trimFrameCache(requestedFrame);
     };
@@ -401,7 +509,6 @@ function useFrameSequence(progress) {
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
       if ("cancelIdleCallback" in window) {
         window.cancelIdleCallback(idleId);
       } else {
@@ -442,7 +549,11 @@ function ValuePanel({ step, activeIndex, localProgress, frameIndex }) {
   const time = Math.round((frameIndex / FRAME_RATE) * 10) / 10;
 
   return (
-    <article className="value-panel" key={step.title}>
+    <article
+      className="value-panel"
+      key={step.title}
+      style={{ "--step-progress": localProgress }}
+    >
       <div className="panel-kicker">
         <span>{step.label}</span>
         <span>{String(activeIndex + 1).padStart(2, "0")}/24</span>
@@ -511,9 +622,11 @@ function DetailStack({ activeIndex }) {
 
 function ScrollFilm() {
   const sectionRef = useRef(null);
-  const progress = useScrollProgress(sectionRef);
+  const rawProgress = useScrollProgress(sectionRef);
+  const progress = useSmoothedProgress(rawProgress);
+  const bootstrap = useInitialFrameBootstrap();
   const { frameIndex, ready } = useFrameSequence(progress);
-  useProgressiveFramePrefetch();
+  useProgressiveFramePrefetch(bootstrap.complete);
   const { current, activeIndex, localProgress } = useMemo(
     () => getActiveStep(progress),
     [progress],
@@ -531,7 +644,15 @@ function ScrollFilm() {
         />
         <div className="film-shade" />
         <div className="film-grain" />
-        {!ready && <div className="loader">Cargando secuencia frame a frame</div>}
+        {(!ready || !bootstrap.complete) && (
+          <div className="loader">
+            <span>Cargando secuencia completa</span>
+            <i aria-hidden="true">
+              <b style={{ transform: `scaleX(${bootstrap.progress})` }} />
+            </i>
+            <strong>{Math.round(bootstrap.progress * 100)}%</strong>
+          </div>
+        )}
 
         <div className={`copy-layer ${current.side}`}>
           <ValuePanel

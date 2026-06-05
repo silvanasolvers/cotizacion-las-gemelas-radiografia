@@ -146,6 +146,7 @@ main {
   background: #15110d;
   transform: scale(1.012);
   user-select: none;
+  will-change: contents;
 }
 
 .film-shade {
@@ -176,15 +177,57 @@ main {
   left: 50%;
   top: 50%;
   z-index: 8;
-  padding: 12px 15px;
+  width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 999px;
+  border-radius: 8px;
   color: rgba(255, 249, 239, 0.9);
-  background: rgba(13, 12, 10, 0.62);
-  font-size: 13px;
+  background:
+    linear-gradient(135deg, rgba(255, 249, 239, 0.08), rgba(255, 249, 239, 0.02)),
+    rgba(13, 12, 10, 0.68);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+  font-size: 12px;
   font-weight: 780;
   transform: translate(-50%, -50%);
   backdrop-filter: blur(18px);
+}
+
+.loader span,
+.loader strong {
+  position: relative;
+  z-index: 1;
+}
+
+.loader span {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.loader strong {
+  color: #f5c052;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.loader i {
+  grid-column: 1 / -1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 249, 239, 0.16);
+}
+
+.loader b {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--magenta), var(--yellow));
+  transform-origin: left center;
 }
 
 .copy-layer {
@@ -193,7 +236,10 @@ main {
   z-index: 5;
   width: min(390px, calc(100vw - 128px));
   transform: translateY(-48%);
-  transition: left 260ms ease, right 260ms ease;
+  contain: layout paint;
+  transition:
+    left 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .copy-layer.left {
@@ -226,6 +272,8 @@ main {
     inset 0 1px 0 rgba(255, 249, 239, 0.16);
   backdrop-filter: blur(18px) saturate(1.15);
   overflow: hidden;
+  animation: panelSettle 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
 }
 
 .value-panel::before {
@@ -361,6 +409,7 @@ main {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--magenta), var(--yellow));
   transform-origin: left center;
+  transition: transform 180ms linear;
 }
 
 .frame-note {
@@ -405,12 +454,18 @@ main {
   font-size: 12px;
   font-weight: 760;
   backdrop-filter: blur(16px);
+  transition:
+    color 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease,
+    transform 220ms ease;
 }
 
 .detail-stack .is-current {
   color: #fff9ef;
   border-color: rgba(244, 183, 47, 0.48);
   background: rgba(164, 15, 78, 0.34);
+  transform: translateY(-2px);
 }
 
 .progress-rail {
@@ -446,6 +501,7 @@ main {
   background: linear-gradient(180deg, var(--magenta), var(--yellow));
   transform: scaleY(var(--progress, 0));
   transform-origin: top center;
+  transition: transform 120ms linear;
 }
 
 .rail-markers {
@@ -471,6 +527,18 @@ main {
   box-shadow: 0 0 0 5px rgba(244, 183, 47, 0.14);
 }
 
+@keyframes panelSettle {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .progress-rail b {
   padding: 6px 0;
   color: rgba(255, 249, 239, 0.82);
@@ -481,7 +549,7 @@ main {
 
 .closing {
   position: relative;
-  z-index: 3;
+  z-index: 12;
   min-height: 92vh;
   padding: clamp(78px, 10vw, 140px) clamp(18px, 5vw, 78px);
   display: grid;
