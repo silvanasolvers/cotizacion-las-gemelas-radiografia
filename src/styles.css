@@ -74,7 +74,7 @@ main {
   padding: 14px clamp(14px, 3vw, 36px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   color: #fff9ef;
   background:
@@ -83,43 +83,16 @@ main {
   pointer-events: none;
 }
 
-.brand-lockup,
 .topbar-meta {
   pointer-events: auto;
 }
 
-.brand-lockup {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 11px;
-}
-
-.brand-lockup img {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 auto;
-  object-fit: cover;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
-}
-
-.brand-lockup span {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.brand-lockup strong,
 .topbar-meta b {
   font-size: 14px;
   font-weight: 850;
   line-height: 1.05;
 }
 
-.brand-lockup small,
 .topbar-meta span {
   color: rgba(255, 249, 239, 0.68);
   font-size: 11px;
@@ -141,8 +114,8 @@ main {
 
 .scroll-film {
   position: relative;
-  height: 1180vh;
-  min-height: 6800px;
+  height: 2200vh;
+  min-height: 15000px;
   background: #0d0c0a;
 }
 
@@ -160,7 +133,7 @@ main {
   background-size: 44px 44px;
 }
 
-.film-video {
+.film-frame {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -170,6 +143,7 @@ main {
   object-fit: cover;
   background: #15110d;
   transform: scale(1.012);
+  user-select: none;
 }
 
 .film-shade {
@@ -591,17 +565,10 @@ main {
     align-items: flex-start;
   }
 
-  .brand-lockup img {
-    width: 40px;
-    height: 40px;
-  }
-
-  .brand-lockup strong,
   .topbar-meta b {
     font-size: 12px;
   }
 
-  .brand-lockup small,
   .topbar-meta span {
     font-size: 9px;
   }
@@ -613,11 +580,11 @@ main {
   }
 
   .scroll-film {
-    height: 1400vh;
-    min-height: 7400px;
+    height: 2600vh;
+    min-height: 17000px;
   }
 
-  .film-video {
+  .film-frame {
     object-position: center center;
   }
 
@@ -699,7 +666,13 @@ main {
 
   .rail-markers span {
     left: var(--marker-left, 0);
+    width: 6px;
+    height: 6px;
     transform: translate(-50%, -50%);
+  }
+
+  .rail-markers .is-active {
+    box-shadow: 0 0 0 3px rgba(244, 183, 47, 0.14);
   }
 
   .progress-rail b {

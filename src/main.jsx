@@ -20,6 +20,73 @@ import {
 import "./styles.css";
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
+const FRAME_COUNT = 717;
+const FRAME_RATE = 24;
+const FRAME_PRELOAD_RADIUS = 28;
+const MAX_CACHED_FRAMES = 120;
+const TRIMMED_CACHED_FRAMES = 80;
+
+const framePath = (index) =>
+  `/scroll-frames/frame-${String(index + 1).padStart(4, "0")}.webp`;
+
+const frameCache = new Map();
+const fetchedFrames = new Set();
+
+function loadFrame(index) {
+  if (index < 0 || index >= FRAME_COUNT) return Promise.resolve(false);
+  const cached = frameCache.get(index);
+  if (cached) return cached.promise;
+
+  const image = new Image();
+  image.decoding = "async";
+  const promise = new Promise((resolve) => {
+    image.onload = () => resolve(true);
+    image.onerror = () => resolve(false);
+  });
+  image.src = framePath(index);
+  frameCache.set(index, { image, promise });
+  return promise;
+}
+
+function trimFrameCache(centerIndex) {
+  if (frameCache.size <= MAX_CACHED_FRAMES) return;
+  const indexes = Array.from(frameCache.keys()).sort(
+    (a, b) => Math.abs(b - centerIndex) - Math.abs(a - centerIndex),
+  );
+  indexes.slice(0, frameCache.size - TRIMMED_CACHED_FRAMES).forEach((index) => {
+    frameCache.delete(index);
+  });
+}
+
+function prefetchFrame(index) {
+  if (index < 0 || index >= FRAME_COUNT || fetchedFrames.has(index)) return;
+  fetchedFrames.add(index);
+  window.fetch(framePath(index), { cache: "force-cache" }).catch(() => {
+    fetchedFrames.delete(index);
+  });
+}
+
+function useProgressiveFramePrefetch() {
+  useEffect(() => {
+    let cancelled = false;
+    let index = 0;
+
+    const pump = () => {
+      if (cancelled || index >= FRAME_COUNT) return;
+      for (let batch = 0; batch < 2 && index < FRAME_COUNT; batch += 1) {
+        prefetchFrame(index);
+        index += 1;
+      }
+      window.setTimeout(pump, 160);
+    };
+
+    const start = window.setTimeout(pump, 900);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+    };
+  }, []);
+}
 
 const timeline = [
   {
@@ -297,54 +364,53 @@ function useScrollProgress(ref) {
   return progress;
 }
 
-function useScrubbedVideo(videoRef, progress) {
-  const [duration, setDuration] = useState(29.875);
+function useFrameSequence(progress) {
+  const requestedFrame = Math.min(
+    FRAME_COUNT - 1,
+    Math.max(0, Math.round(clamp01(progress) * (FRAME_COUNT - 1))),
+  );
+  const [visibleFrame, setVisibleFrame] = useState(requestedFrame);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return undefined;
-
-    const loadMetadata = () => {
-      if (Number.isFinite(video.duration) && video.duration > 0) {
-        setDuration(video.duration);
-      }
-      setReady(true);
-      video.pause();
-    };
-
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "auto";
-
-    if (video.readyState >= 1) {
-      loadMetadata();
-    }
-
-    video.addEventListener("loadedmetadata", loadMetadata);
-    video.addEventListener("canplay", loadMetadata);
-
-    return () => {
-      video.removeEventListener("loadedmetadata", loadMetadata);
-      video.removeEventListener("canplay", loadMetadata);
-    };
-  }, [videoRef]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !duration) return undefined;
-
-    const target = clamp01(progress) * Math.max(0, duration - 0.08);
+    let cancelled = false;
+    let idleId = 0;
     const frame = window.requestAnimationFrame(() => {
-      if (Math.abs(video.currentTime - target) > 0.025) {
-        video.currentTime = target;
+      setVisibleFrame(requestedFrame);
+    });
+
+    loadFrame(requestedFrame).then((loaded) => {
+      if (!cancelled && loaded) {
+        setReady(true);
       }
     });
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [duration, progress, videoRef]);
+    const warmAroundCurrent = () => {
+      for (let offset = 1; offset <= FRAME_PRELOAD_RADIUS; offset += 1) {
+        loadFrame(requestedFrame - offset);
+        loadFrame(requestedFrame + offset);
+      }
+      trimFrameCache(requestedFrame);
+    };
 
-  return { duration, ready };
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(warmAroundCurrent, { timeout: 500 });
+    } else {
+      idleId = window.setTimeout(warmAroundCurrent, 80);
+    }
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      if ("cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [requestedFrame]);
+
+  return { frameIndex: visibleFrame, requestedFrame, ready };
 }
 
 function getActiveStep(progress) {
@@ -361,14 +427,7 @@ function getActiveStep(progress) {
 
 function TopBar() {
   return (
-    <header className="topbar" aria-label="Radiografia Las Gemelas">
-      <a className="brand-lockup" href="#inicio" aria-label="Inicio">
-        <img src="/logo-las-gemelas.jpg" alt="Grupo Ferretero Las Gemelas" />
-        <span>
-          <strong>Las Gemelas</strong>
-          <small>Radiografia digital</small>
-        </span>
-      </a>
+    <header className="topbar" aria-label="Centro Digital de Ventas">
       <div className="topbar-meta">
         <span>Centro Digital de Ventas</span>
         <b>24 planos de valor</b>
@@ -377,9 +436,10 @@ function TopBar() {
   );
 }
 
-function ValuePanel({ step, activeIndex, localProgress, progress, duration }) {
+function ValuePanel({ step, activeIndex, localProgress, frameIndex }) {
   const Icon = step.icon;
-  const time = Math.round(progress * duration * 10) / 10;
+  const frameNumber = frameIndex + 1;
+  const time = Math.round((frameIndex / FRAME_RATE) * 10) / 10;
 
   return (
     <article className="value-panel" key={step.title}>
@@ -405,8 +465,10 @@ function ValuePanel({ step, activeIndex, localProgress, progress, duration }) {
         <i style={{ transform: `scaleX(${localProgress})` }} />
       </div>
       <div className="frame-note">
-        <span>Frame narrativo</span>
-        <b>{time.toFixed(1)}s</b>
+        <span>Frame real</span>
+        <b>
+          {String(frameNumber).padStart(3, "0")}/{FRAME_COUNT} · {time.toFixed(1)}s
+        </b>
       </div>
     </article>
   );
@@ -449,9 +511,9 @@ function DetailStack({ activeIndex }) {
 
 function ScrollFilm() {
   const sectionRef = useRef(null);
-  const videoRef = useRef(null);
   const progress = useScrollProgress(sectionRef);
-  const { duration, ready } = useScrubbedVideo(videoRef, progress);
+  const { frameIndex, ready } = useFrameSequence(progress);
+  useProgressiveFramePrefetch();
   const { current, activeIndex, localProgress } = useMemo(
     () => getActiveStep(progress),
     [progress],
@@ -460,27 +522,23 @@ function ScrollFilm() {
   return (
     <section className="scroll-film" id="inicio" ref={sectionRef}>
       <div className="film-sticky">
-        <video
-          ref={videoRef}
-          className="film-video"
-          src="/las-gemelas-scroll-master-final.mp4"
-          muted
-          playsInline
-          preload="auto"
-          poster="/logo-las-gemelas.jpg"
-          aria-label="Video arquitectonico del Centro Digital de Ventas Las Gemelas"
+        <img
+          className="film-frame"
+          src={framePath(frameIndex)}
+          alt=""
+          draggable="false"
+          aria-hidden="true"
         />
         <div className="film-shade" />
         <div className="film-grain" />
-        {!ready && <div className="loader">Preparando radiografia visual</div>}
+        {!ready && <div className="loader">Cargando secuencia frame a frame</div>}
 
         <div className={`copy-layer ${current.side}`}>
           <ValuePanel
             step={current}
             activeIndex={activeIndex}
             localProgress={localProgress}
-            progress={progress}
-            duration={duration}
+            frameIndex={frameIndex}
           />
         </div>
 
