@@ -12,6 +12,8 @@
   --ink: #171310;
   --paper: #f6efe4;
   --paper-soft: rgba(250, 244, 234, 0.9);
+  --hud: rgba(17, 15, 13, 0.58);
+  --hud-strong: rgba(17, 15, 13, 0.76);
   --magenta: #a40f4e;
   --magenta-soft: rgba(164, 15, 78, 0.18);
   --yellow: #f4b72f;
@@ -189,7 +191,7 @@ main {
   position: absolute;
   top: 50%;
   z-index: 5;
-  width: min(430px, calc(100vw - 112px));
+  width: min(390px, calc(100vw - 128px));
   transform: translateY(-48%);
   transition: left 260ms ease, right 260ms ease;
 }
@@ -206,20 +208,23 @@ main {
 
 .value-panel {
   position: relative;
-  min-height: 520px;
-  padding: clamp(18px, 2.8vw, 30px);
+  min-height: 0;
+  padding: clamp(18px, 2.2vw, 24px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 16px;
+  justify-content: flex-start;
+  gap: 13px;
   border-radius: 8px;
-  color: var(--ink);
+  color: #fff9ef;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(246, 239, 228, 0.88)),
-    linear-gradient(90deg, transparent 0 48%, rgba(164, 15, 78, 0.08) 48% 49%, transparent 49%);
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  box-shadow: 0 28px 90px var(--shadow);
-  backdrop-filter: blur(22px);
+    linear-gradient(135deg, rgba(255, 249, 239, 0.09), rgba(255, 249, 239, 0.025)),
+    linear-gradient(90deg, rgba(164, 15, 78, 0.22), transparent 2px),
+    var(--hud);
+  border: 1px solid rgba(255, 249, 239, 0.2);
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 249, 239, 0.16);
+  backdrop-filter: blur(18px) saturate(1.15);
   overflow: hidden;
 }
 
@@ -229,10 +234,20 @@ main {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(23, 19, 16, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(23, 19, 16, 0.045) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 76%);
+    linear-gradient(90deg, rgba(255, 249, 239, 0.055) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 249, 239, 0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent 88%);
+}
+
+.value-panel::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  pointer-events: none;
+  border-top: 1px solid rgba(244, 183, 47, 0.42);
+  border-right: 1px solid rgba(244, 183, 47, 0.18);
+  opacity: 0.56;
 }
 
 .panel-kicker,
@@ -252,55 +267,63 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: var(--magenta);
-  font-size: 11px;
+  color: #f5c052;
+  font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .panel-icon {
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  color: var(--magenta);
-  background: var(--magenta-soft);
-  border: 1px solid rgba(164, 15, 78, 0.22);
+  border-radius: 8px;
+  color: #fff9ef;
+  background: rgba(164, 15, 78, 0.35);
+  border: 1px solid rgba(244, 183, 47, 0.26);
+  box-shadow: 0 0 22px rgba(164, 15, 78, 0.18);
 }
 
 .value-panel h1 {
-  max-width: 12ch;
-  font-size: clamp(34px, 4vw, 54px);
-  line-height: 0.98;
+  max-width: 15ch;
+  color: #fff9ef;
+  font-size: clamp(27px, 3vw, 38px);
+  line-height: 1.02;
   letter-spacing: 0;
 }
 
 .value-panel p {
-  color: #4f473e;
-  font-size: clamp(15px, 1.35vw, 17px);
-  line-height: 1.54;
+  color: rgba(255, 249, 239, 0.78);
+  font-size: clamp(13px, 1.12vw, 15px);
+  line-height: 1.5;
 }
 
 .value-line {
-  padding: 13px 14px;
+  padding: 11px 12px;
   display: grid;
   gap: 5px;
-  border-left: 4px solid var(--yellow);
+  border-left: 2px solid var(--yellow);
   border-radius: 8px;
-  background: rgba(244, 183, 47, 0.15);
+  background:
+    linear-gradient(90deg, rgba(244, 183, 47, 0.16), rgba(244, 183, 47, 0.04)),
+    rgba(13, 12, 10, 0.24);
+  border-top: 1px solid rgba(244, 183, 47, 0.12);
+  border-bottom: 1px solid rgba(244, 183, 47, 0.1);
 }
 
 .value-line strong {
-  color: #7b5a08;
-  font-size: 11px;
+  color: #f5c052;
+  font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .value-line span {
-  color: #332c24;
-  font-size: 14px;
+  color: rgba(255, 249, 239, 0.92);
+  font-size: 13px;
   font-weight: 760;
   line-height: 1.35;
 }
@@ -312,22 +335,23 @@ main {
 }
 
 .module-strip span {
-  min-height: 28px;
-  padding: 6px 10px;
+  min-height: 26px;
+  padding: 5px 9px;
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
   color: #fff9ef;
-  background: #171310;
-  font-size: 12px;
+  background: rgba(17, 15, 13, 0.52);
+  border: 1px solid rgba(255, 249, 239, 0.14);
+  font-size: 11px;
   font-weight: 820;
 }
 
 .micro-meter {
-  height: 5px;
+  height: 3px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(23, 19, 16, 0.12);
+  background: rgba(255, 249, 239, 0.14);
 }
 
 .micro-meter i {
@@ -344,14 +368,15 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: rgba(23, 19, 16, 0.58);
-  font-size: 12px;
+  color: rgba(255, 249, 239, 0.48);
+  font-size: 10px;
   font-weight: 820;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .frame-note b {
-  color: var(--magenta);
+  color: #f5c052;
 }
 
 .detail-stack {
@@ -540,16 +565,16 @@ main {
     left: 50%;
     right: auto;
     bottom: 82px;
-    width: min(680px, calc(100vw - 92px));
+    width: min(560px, calc(100vw - 92px));
     transform: translateX(-50%);
   }
 
   .value-panel {
-    min-height: 360px;
+    min-height: 0;
   }
 
   .value-panel h1 {
-    max-width: 16ch;
+    max-width: 18ch;
   }
 
   .detail-stack {
@@ -597,30 +622,30 @@ main {
 
   .value-panel {
     min-height: 0;
-    max-height: calc(100vh - 118px);
-    padding: 16px;
-    gap: 11px;
+    max-height: calc(100vh - 126px);
+    padding: 14px;
+    gap: 10px;
     overflow: auto;
   }
 
   .panel-icon {
-    width: 38px;
-    height: 38px;
+    width: 30px;
+    height: 30px;
   }
 
   .value-panel h1 {
     max-width: 100%;
-    font-size: clamp(28px, 9vw, 40px);
-    line-height: 1;
+    font-size: clamp(23px, 7.6vw, 34px);
+    line-height: 1.04;
   }
 
   .value-panel p {
-    font-size: 14px;
-    line-height: 1.44;
+    font-size: 13px;
+    line-height: 1.42;
   }
 
   .value-line {
-    padding: 11px 12px;
+    padding: 9px 10px;
   }
 
   .module-strip span {
