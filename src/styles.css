@@ -48,7 +48,8 @@ a {
 }
 
 img,
-video {
+video,
+canvas {
   max-width: 100%;
   display: block;
 }
@@ -142,11 +143,10 @@ main {
   width: 100%;
   height: 100%;
   max-width: none;
-  object-fit: cover;
   background: #15110d;
   transform: scale(1.012);
   user-select: none;
-  will-change: contents;
+  will-change: transform;
 }
 
 .film-shade {

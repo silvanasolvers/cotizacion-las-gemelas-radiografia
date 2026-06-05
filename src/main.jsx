@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Bot,
@@ -22,12 +22,15 @@ import "./styles.css";
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const FRAME_COUNT = 717;
 const FRAME_RATE = 24;
-const FRAME_PRELOAD_RADIUS = 54;
-const BOOTSTRAP_FRAME_COUNT = 108;
-const BOOTSTRAP_CONCURRENCY = 10;
-const BACKGROUND_FETCH_CONCURRENCY = 8;
-const MAX_CACHED_FRAMES = 240;
-const TRIMMED_CACHED_FRAMES = 180;
+const FRAME_WIDTH = 1280;
+const FRAME_HEIGHT = 720;
+const FRAME_PRELOAD_RADIUS = 34;
+const BOOTSTRAP_FRAME_COUNT = 42;
+const BOOTSTRAP_CONCURRENCY = 3;
+const BACKGROUND_FETCH_CONCURRENCY = 2;
+const MAX_CACHED_FRAMES = 150;
+const TRIMMED_CACHED_FRAMES = 112;
+const HUD_UPDATE_INTERVAL = 90;
 
 const framePath = (index) =>
   `/scroll-frames/frame-${String(index + 1).padStart(4, "0")}.webp`;
@@ -35,19 +38,29 @@ const framePath = (index) =>
 const frameCache = new Map();
 const fetchedFrames = new Set();
 
-function loadFrame(index) {
-  if (index < 0 || index >= FRAME_COUNT) return Promise.resolve(false);
+function loadFrame(index, priority = "auto") {
+  if (index < 0 || index >= FRAME_COUNT) return Promise.resolve(null);
   const cached = frameCache.get(index);
   if (cached) return cached.promise;
 
   const image = new Image();
   image.decoding = "async";
+  image.fetchPriority = priority;
   const promise = new Promise((resolve) => {
-    image.onload = () => resolve(true);
-    image.onerror = () => resolve(false);
+    image.onload = () => {
+      const decode = image.decode ? image.decode() : Promise.resolve();
+      decode
+        .catch(() => undefined)
+        .then(() => {
+          const entry = frameCache.get(index);
+          if (entry) entry.ready = true;
+          resolve(image);
+        });
+    };
+    image.onerror = () => resolve(null);
   });
   image.src = framePath(index);
-  frameCache.set(index, { image, promise });
+  frameCache.set(index, { image, promise, ready: false });
   return promise;
 }
 
@@ -69,6 +82,54 @@ function prefetchFrame(index) {
   });
 }
 
+function getCachedFrame(index) {
+  const entry = frameCache.get(index);
+  return entry?.ready ? entry.image : null;
+}
+
+function drawCoverFrame(canvas, image) {
+  const context = canvas?.getContext("2d");
+  if (!canvas || !context || !image) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  const frameRatio = FRAME_WIDTH / FRAME_HEIGHT;
+  const canvasRatio = width / height;
+  let sourceWidth = FRAME_WIDTH;
+  let sourceHeight = FRAME_HEIGHT;
+  let sourceX = 0;
+  let sourceY = 0;
+
+  if (canvasRatio > frameRatio) {
+    sourceHeight = FRAME_WIDTH / canvasRatio;
+    sourceY = (FRAME_HEIGHT - sourceHeight) / 2;
+  } else {
+    sourceWidth = FRAME_HEIGHT * canvasRatio;
+    sourceX = (FRAME_WIDTH - sourceWidth) / 2;
+  }
+
+  context.clearRect(0, 0, width, height);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    width,
+    height,
+  );
+}
+
 function getBootstrapIndexes() {
   const indexes = new Set();
 
@@ -76,14 +137,7 @@ function getBootstrapIndexes() {
     indexes.add(index);
   }
 
-  timeline.forEach((step) => {
-    const anchor = Math.round(step.at * (FRAME_COUNT - 1));
-    for (let offset = -5; offset <= 5; offset += 1) {
-      indexes.add(Math.min(FRAME_COUNT - 1, Math.max(0, anchor + offset)));
-    }
-  });
-
-  for (let index = FRAME_COUNT - 18; index < FRAME_COUNT; index += 1) {
+  for (let index = FRAME_COUNT - 8; index < FRAME_COUNT; index += 1) {
     indexes.add(index);
   }
 
@@ -107,7 +161,7 @@ function useInitialFrameBootstrap() {
       while (!cancelled && cursor < indexes.length) {
         const index = indexes[cursor];
         cursor += 1;
-        await loadFrame(index);
+        await loadFrame(index, index < BOOTSTRAP_FRAME_COUNT ? "high" : "low");
         finished += 1;
         if (!cancelled) setLoaded(finished);
       }
@@ -117,7 +171,6 @@ function useInitialFrameBootstrap() {
       Array.from({ length: BOOTSTRAP_CONCURRENCY }, () => worker()),
     ).then(() => {
       if (!cancelled) {
-        trimFrameCache(0);
         setComplete(true);
       }
     });
@@ -151,12 +204,15 @@ function useProgressiveFramePrefetch(enabled) {
       }
     };
 
-    Promise.all(
-      Array.from({ length: BACKGROUND_FETCH_CONCURRENCY }, () => worker()),
-    );
+    const start = window.setTimeout(() => {
+      Promise.all(
+        Array.from({ length: BACKGROUND_FETCH_CONCURRENCY }, () => worker()),
+      );
+    }, 450);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(start);
     };
   }, [enabled]);
 }
@@ -404,120 +460,140 @@ const timeline = [
   },
 ];
 
-function useScrollProgress(ref) {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    let frame = 0;
-
-    const update = () => {
-      const node = ref.current;
-      if (!node) return;
-      const rect = node.getBoundingClientRect();
-      const total = Math.max(1, rect.height - window.innerHeight);
-      setProgress(clamp01(-rect.top / total));
-    };
-
-    const schedule = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-    };
-  }, [ref]);
-
-  return progress;
+function readSectionProgress(section) {
+  if (!section) return 0;
+  const rect = section.getBoundingClientRect();
+  const total = Math.max(1, rect.height - window.innerHeight);
+  return clamp01(-rect.top / total);
 }
 
-function useSmoothedProgress(targetProgress) {
-  const [progress, setProgress] = useState(targetProgress);
-  const targetRef = useRef(targetProgress);
-  const progressRef = useRef(targetProgress);
+function useCanvasScrollSequence(sectionRef, canvasRef, bootstrap) {
+  const [hud, setHud] = useState({
+    activeIndex: 0,
+    frameIndex: 0,
+    localProgress: 0,
+    progress: 0,
+    ready: false,
+  });
 
   useEffect(() => {
-    targetRef.current = targetProgress;
-  }, [targetProgress]);
+    const canvas = canvasRef.current;
+    const section = sectionRef.current;
+    if (!canvas || !section) return undefined;
 
-  useEffect(() => {
-    let frame = 0;
-
-    const tick = () => {
-      const target = targetRef.current;
-      const current = progressRef.current;
-      const delta = target - current;
-      const distance = Math.abs(delta);
-      const easing = distance > 0.18 ? 0.48 : distance > 0.07 ? 0.34 : 0.22;
-      const next =
-        distance < 0.00035 ? target : current + delta * easing;
-
-      progressRef.current = next;
-      setProgress(next);
-      frame = window.requestAnimationFrame(tick);
-    };
-
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  return progress;
-}
-
-function useFrameSequence(progress) {
-  const requestedFrame = Math.min(
-    FRAME_COUNT - 1,
-    Math.max(0, Math.round(clamp01(progress) * (FRAME_COUNT - 1))),
-  );
-  const [visibleFrame, setVisibleFrame] = useState(requestedFrame);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
     let cancelled = false;
-    let idleId = 0;
+    let animationFrame = 0;
+    let displayedProgress = readSectionProgress(section);
+    let lastDrawnFrame = -1;
+    let lastHudFrame = -1;
+    let lastHudActive = -1;
+    let lastHudUpdate = 0;
+    let lastWarmFrame = -999;
 
-    loadFrame(requestedFrame).then((loaded) => {
-      if (!cancelled && loaded) {
-        setVisibleFrame(requestedFrame);
-        setReady(true);
+    const drawFrame = (index) => {
+      const image = getCachedFrame(index);
+      if (!image || index === lastDrawnFrame) return false;
+      drawCoverFrame(canvas, image);
+      lastDrawnFrame = index;
+      return true;
+    };
+
+    const warmAround = (centerIndex) => {
+      if (Math.abs(centerIndex - lastWarmFrame) < 8) return;
+      lastWarmFrame = centerIndex;
+
+      for (let offset = 1; offset <= FRAME_PRELOAD_RADIUS; offset += 1) {
+        const priority = offset <= 6 ? "high" : "low";
+        loadFrame(centerIndex - offset, priority);
+        loadFrame(centerIndex + offset, priority);
       }
+
+      for (
+        let offset = FRAME_PRELOAD_RADIUS + 4;
+        offset <= FRAME_PRELOAD_RADIUS + 64;
+        offset += 8
+      ) {
+        prefetchFrame(centerIndex - offset);
+        prefetchFrame(centerIndex + offset);
+      }
+
+      trimFrameCache(centerIndex);
+    };
+
+    const updateHud = (progress, frameIndex, force = false) => {
+      const { activeIndex, localProgress } = getActiveStep(progress);
+      const now = performance.now();
+      const shouldUpdate =
+        force ||
+        activeIndex !== lastHudActive ||
+        Math.abs(frameIndex - lastHudFrame) >= 6 ||
+        now - lastHudUpdate > HUD_UPDATE_INTERVAL;
+
+      if (!shouldUpdate) return;
+
+      lastHudActive = activeIndex;
+      lastHudFrame = frameIndex;
+      lastHudUpdate = now;
+      setHud({
+        activeIndex,
+        frameIndex,
+        localProgress,
+        progress,
+        ready: true,
+      });
+    };
+
+    loadFrame(0).then((image) => {
+      if (cancelled || !image) return;
+      drawFrame(0);
+      updateHud(displayedProgress, 0, true);
     });
 
-    const warmAroundCurrent = () => {
-      for (let offset = 1; offset <= FRAME_PRELOAD_RADIUS; offset += 1) {
-        loadFrame(requestedFrame - offset);
-        loadFrame(requestedFrame + offset);
+    const tick = () => {
+      const targetProgress = readSectionProgress(section);
+      const delta = targetProgress - displayedProgress;
+      displayedProgress =
+        Math.abs(delta) < 0.002 ? targetProgress : displayedProgress + delta * 0.82;
+
+      const requestedFrame = Math.min(
+        FRAME_COUNT - 1,
+        Math.max(0, Math.round(targetProgress * (FRAME_COUNT - 1))),
+      );
+      const cached = getCachedFrame(requestedFrame);
+
+      if (cached) {
+        drawFrame(requestedFrame);
+      } else {
+        loadFrame(requestedFrame, "high").then((image) => {
+          if (!cancelled && image) drawFrame(requestedFrame);
+        });
       }
-      for (let offset = FRAME_PRELOAD_RADIUS + 1; offset <= FRAME_PRELOAD_RADIUS + 44; offset += 4) {
-        prefetchFrame(requestedFrame - offset);
-        prefetchFrame(requestedFrame + offset);
-      }
-      trimFrameCache(requestedFrame);
+
+      warmAround(requestedFrame);
+      updateHud(displayedProgress, lastDrawnFrame >= 0 ? lastDrawnFrame : requestedFrame);
+
+      animationFrame = window.requestAnimationFrame(tick);
     };
 
-    if ("requestIdleCallback" in window) {
-      idleId = window.requestIdleCallback(warmAroundCurrent, { timeout: 500 });
-    } else {
-      idleId = window.setTimeout(warmAroundCurrent, 80);
-    }
+    animationFrame = window.requestAnimationFrame(tick);
+
+    const resize = () => {
+      if (lastDrawnFrame >= 0) {
+        const image = getCachedFrame(lastDrawnFrame);
+        if (image) drawCoverFrame(canvas, image);
+      }
+    };
+
+    window.addEventListener("resize", resize);
 
     return () => {
       cancelled = true;
-      if ("cancelIdleCallback" in window) {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
-      }
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", resize);
     };
-  }, [requestedFrame]);
+  }, [canvasRef, sectionRef, bootstrap.complete]);
 
-  return { frameIndex: visibleFrame, requestedFrame, ready };
+  return hud;
 }
 
 function getActiveStep(progress) {
@@ -622,29 +698,23 @@ function DetailStack({ activeIndex }) {
 
 function ScrollFilm() {
   const sectionRef = useRef(null);
-  const rawProgress = useScrollProgress(sectionRef);
-  const progress = useSmoothedProgress(rawProgress);
+  const canvasRef = useRef(null);
   const bootstrap = useInitialFrameBootstrap();
-  const { frameIndex, ready } = useFrameSequence(progress);
+  const hud = useCanvasScrollSequence(sectionRef, canvasRef, bootstrap);
   useProgressiveFramePrefetch(bootstrap.complete);
-  const { current, activeIndex, localProgress } = useMemo(
-    () => getActiveStep(progress),
-    [progress],
-  );
+  const current = timeline[hud.activeIndex];
 
   return (
     <section className="scroll-film" id="inicio" ref={sectionRef}>
       <div className="film-sticky">
-        <img
+        <canvas
+          ref={canvasRef}
           className="film-frame"
-          src={framePath(frameIndex)}
-          alt=""
-          draggable="false"
           aria-hidden="true"
         />
         <div className="film-shade" />
         <div className="film-grain" />
-        {(!ready || !bootstrap.complete) && (
+        {(!hud.ready || !bootstrap.complete) && (
           <div className="loader">
             <span>Cargando secuencia completa</span>
             <i aria-hidden="true">
@@ -657,14 +727,14 @@ function ScrollFilm() {
         <div className={`copy-layer ${current.side}`}>
           <ValuePanel
             step={current}
-            activeIndex={activeIndex}
-            localProgress={localProgress}
-            frameIndex={frameIndex}
+            activeIndex={hud.activeIndex}
+            localProgress={hud.localProgress}
+            frameIndex={hud.frameIndex}
           />
         </div>
 
-        <DetailStack activeIndex={activeIndex} />
-        <ProgressRail progress={progress} activeIndex={activeIndex} />
+        <DetailStack activeIndex={hud.activeIndex} />
+        <ProgressRail progress={hud.progress} activeIndex={hud.activeIndex} />
       </div>
     </section>
   );
