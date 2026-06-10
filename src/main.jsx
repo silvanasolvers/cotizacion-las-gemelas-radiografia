@@ -501,6 +501,67 @@ const timeline = [
   },
 ];
 
+const marketSignals = [
+  {
+    title: "Presencia publica activa",
+    body: "Aparecen perfiles de Grupo Ferretero Las Gemelas en Instagram y Facebook, con mensajes asociados a Venecia, Fredonia, materiales para obra y productos de ferreteria. Eso muestra que no parten de cero.",
+  },
+  {
+    title: "Dominio propio sin vitrina clara",
+    body: "El dominio ferreterialasgemelas.com existe, pero en la observacion publica no funciona como pagina comercial de confianza: no guia rapido a catalogo, sedes, WhatsApp, lineas fuertes o cotizacion.",
+  },
+  {
+    title: "Mensaje comercial disperso",
+    body: "Se percibe inventario y trayectoria, pero la experiencia digital todavia no empaqueta una promesa simple: que resuelven, donde atienden, como pedir y por que escribirles primero.",
+  },
+];
+
+const buyerMoments = [
+  ["Urgencia del hogar", "Fuga, chapa, pintura, tornillos o reparacion rapida. Gana quien aparece en Google y responde por WhatsApp sin friccion."],
+  ["Obra o remodelacion", "El comprador compara disponibilidad, precio, transporte y confianza. Aqui pesan fotos reales, categorias claras y cotizacion agil."],
+  ["Maestros y contratistas", "Necesitan recurrencia, rapidez y memoria. Un WhatsApp ordenado puede convertirlos en clientes frecuentes, no conversaciones sueltas."],
+  ["Administradores y negocios", "Conjuntos, fincas y locales buscan proveedor confiable. La comunicacion debe pasar de producto aislado a solucion recurrente."],
+];
+
+const actionPlan = [
+  {
+    period: "Dias 1-30",
+    title: "Ordenar la vitrina digital",
+    items: [
+      "Optimizar Google Business Profile con fotos, horarios, categorias, sedes y WhatsApp.",
+      "Convertir el dominio en pagina comercial simple: quienes son, que venden, donde estan y como pedir.",
+      "Configurar WhatsApp Business con catalogo, respuestas rapidas y etiquetas por tipo de cliente.",
+    ],
+  },
+  {
+    period: "Dias 31-60",
+    title: "Activar contenido que lleve a pedido",
+    items: [
+      "Publicar por necesidad: plomeria, electricidad, pintura, hogar, obra y acabados.",
+      "Crear videos cortos de solucion: que comprar, como elegir y cuando pedir asesoria.",
+      "Probar pauta geolocalizada hacia WhatsApp para zonas cercanas y publico constructor.",
+    ],
+  },
+  {
+    period: "Dias 61-90",
+    title: "Medir y preparar automatizacion",
+    items: [
+      "Medir mensajes, productos mas consultados, horarios de mayor demanda y fuentes de contacto.",
+      "Crear base de clientes frecuentes: maestros, administradores, negocios y compradores recurrentes.",
+      "Elegir la primera automatizacion interna segun la fuga mas costosa: cotizaciones, seguimiento o inventario.",
+    ],
+  },
+];
+
+const automationIdeas = [
+  "Cotizaciones por WhatsApp con plantillas y seguimiento.",
+  "CRM simple para historial de clientes frecuentes.",
+  "Tablero de productos mas pedidos y faltantes.",
+  "Recordatorios a compradores recurrentes.",
+  "Reporte por sede, categoria y fuente de contacto.",
+  "Pedidos a proveedor a partir de inventario critico.",
+];
+
 function readSectionProgress(section) {
   if (!section) return 0;
   const rect = section.getBoundingClientRect();
@@ -811,12 +872,110 @@ function Closing() {
   );
 }
 
+function StudySection() {
+  return (
+    <section className="study" id="estudio">
+      <div className="study-hero">
+        <span className="closing-label">Estudio de oportunidad</span>
+        <h2>Las Gemelas no necesitan piezas sueltas. Necesitan que lo digital trabaje como otro vendedor.</h2>
+        <p>
+          La oportunidad no es "hacer redes" por hacer redes. Es convertir
+          busquedas locales, contenido, WhatsApp y seguimiento en una ruta
+          medible: que mas personas las encuentren, pregunten, coticen y vuelvan.
+        </p>
+      </div>
+
+      <div className="study-grid">
+        {marketSignals.map((signal) => (
+          <article className="study-card" key={signal.title}>
+            <span>Hallazgo</span>
+            <h3>{signal.title}</h3>
+            <p>{signal.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="study-split">
+        <div>
+          <span className="closing-label">Como compra el cliente</span>
+          <h2>Cinco minutos de duda pueden decidir la venta.</h2>
+        </div>
+        <div className="moment-list">
+          {buyerMoments.map(([title, body]) => (
+            <article key={title}>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="route-block">
+        <div className="route-head">
+          <span className="closing-label">Ruta sugerida</span>
+          <h2>90 dias para pasar de presencia a captacion.</h2>
+        </div>
+        <div className="route-grid">
+          {actionPlan.map((phase) => (
+            <article className="route-card" key={phase.period}>
+              <b>{phase.period}</b>
+              <h3>{phase.title}</h3>
+              <ul>
+                {phase.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="tech-block">
+        <div>
+          <span className="closing-label">Alianza tecnologica</span>
+          <h2>La automatizacion debe llegar cuando ya exista una ruta comercial clara.</h2>
+          <p>
+            Primero se ordena la entrada de clientes. Despues, SolversAI puede
+            ayudar a automatizar lo que se repite por dentro: cotizaciones,
+            seguimiento, inventario, reportes y recompra.
+          </p>
+        </div>
+        <div className="tech-list">
+          {automationIdeas.map((idea) => (
+            <span key={idea}>{idea}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="soft-close">
+        <span className="closing-label">Siguiente paso</span>
+        <h2>Proponer una conversacion de diagnostico, no una venta forzada.</h2>
+        <p>
+          La entrada ideal es revisar con ellas que productos quieren mover
+          primero, que zonas atienden mejor, como reciben pedidos hoy y que
+          proceso interno les consume mas tiempo. Con eso se define una primera
+          fase liviana, medible y facil de aprobar.
+        </p>
+      </div>
+
+      <div className="sources">
+        <span>Senales publicas revisadas</span>
+        <a href="https://www.instagram.com/grupoferreterolasgemelas/" target="_blank" rel="noreferrer">Instagram publico de Grupo Ferretero Las Gemelas</a>
+        <a href="https://www.facebook.com/p/Grupo-Ferretero-Las-Gemelas-61552415698344/" target="_blank" rel="noreferrer">Facebook publico de Grupo Ferretero Las Gemelas</a>
+        <a href="https://ferreterialasgemelas.com/" target="_blank" rel="noreferrer">Dominio ferreterialasgemelas.com</a>
+        <a href="https://ccce.org.co/" target="_blank" rel="noreferrer">Camara Colombiana de Comercio Electronico, publicaciones 2026</a>
+      </div>
+    </section>
+  );
+}
+
 function App() {
   return (
     <main>
       <TopBar />
       <ScrollFilm />
       <Closing />
+      <StudySection />
     </main>
   );
 }

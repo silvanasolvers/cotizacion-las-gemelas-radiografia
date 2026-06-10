@@ -12,7 +12,7 @@
   --ink: #171310;
   --paper: #f6efe4;
   --paper-soft: rgba(250, 244, 234, 0.9);
-  --hud: rgba(17, 15, 13, 0.58);
+  --hud: rgba(17, 15, 13, 0.76);
   --hud-strong: rgba(17, 15, 13, 0.76);
   --magenta: #a40f4e;
   --magenta-soft: rgba(164, 15, 78, 0.18);
@@ -619,6 +619,252 @@ main {
   backdrop-filter: blur(18px);
 }
 
+.study {
+  padding: clamp(58px, 8vw, 124px) clamp(18px, 5vw, 72px);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(164, 15, 78, 0.08), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(244, 183, 47, 0.18), transparent 30%),
+    var(--paper);
+}
+
+.study h2,
+.study h3,
+.study p {
+  margin: 0;
+}
+
+.study-hero,
+.study-grid,
+.study-split,
+.route-block,
+.tech-block,
+.soft-close,
+.sources {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.study-hero {
+  display: grid;
+  gap: 22px;
+  margin-bottom: clamp(34px, 6vw, 78px);
+}
+
+.study-hero h2,
+.study-split h2,
+.route-head h2,
+.tech-block h2,
+.soft-close h2 {
+  max-width: 900px;
+  font-size: clamp(34px, 5.4vw, 78px);
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+
+.study-hero p,
+.tech-block p,
+.soft-close p {
+  max-width: 760px;
+  color: rgba(23, 19, 16, 0.72);
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.5;
+}
+
+.study-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: clamp(44px, 8vw, 96px);
+}
+
+.study-card,
+.route-card,
+.moment-list article {
+  border: 1px solid rgba(23, 19, 16, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 249, 239, 0.72);
+  box-shadow: 0 18px 50px rgba(23, 19, 16, 0.08);
+}
+
+.study-card {
+  min-height: 258px;
+  padding: clamp(20px, 2.4vw, 32px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 26px;
+}
+
+.study-card span,
+.sources span {
+  color: var(--magenta);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.study-card h3,
+.moment-list h3,
+.route-card h3 {
+  font-size: clamp(22px, 2.5vw, 31px);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.study-card p,
+.moment-list p,
+.route-card li {
+  color: rgba(23, 19, 16, 0.68);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.study-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(360px, 0.88fr);
+  gap: clamp(28px, 6vw, 74px);
+  align-items: start;
+  margin-bottom: clamp(44px, 8vw, 96px);
+}
+
+.moment-list {
+  display: grid;
+  gap: 14px;
+}
+
+.moment-list article {
+  padding: 22px;
+}
+
+.moment-list h3 {
+  margin-bottom: 8px;
+}
+
+.route-block {
+  margin-bottom: clamp(44px, 8vw, 96px);
+}
+
+.route-head {
+  margin-bottom: 22px;
+}
+
+.route-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.route-card {
+  min-height: 330px;
+  padding: clamp(20px, 2.4vw, 30px);
+}
+
+.route-card b {
+  display: inline-flex;
+  margin-bottom: 18px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  color: #2b2010;
+  background: var(--yellow);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.route-card ul {
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+.route-card li {
+  position: relative;
+  padding-left: 17px;
+}
+
+.route-card li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--magenta);
+}
+
+.tech-block {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.72fr);
+  gap: clamp(24px, 5vw, 68px);
+  align-items: center;
+  margin-bottom: clamp(44px, 8vw, 96px);
+  padding: clamp(28px, 5vw, 58px);
+  border-radius: 12px;
+  color: #fff9ef;
+  background:
+    linear-gradient(135deg, rgba(164, 15, 78, 0.34), rgba(244, 183, 47, 0.18)),
+    #14110f;
+}
+
+.tech-block h2,
+.tech-block p {
+  color: #fff9ef;
+}
+
+.tech-block p {
+  color: rgba(255, 249, 239, 0.72);
+}
+
+.tech-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tech-list span {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 249, 239, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 249, 239, 0.86);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.soft-close {
+  margin-bottom: 34px;
+  padding: clamp(28px, 5vw, 58px);
+  border: 1px solid rgba(23, 19, 16, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 249, 239, 0.78);
+}
+
+.soft-close h2 {
+  max-width: 960px;
+  margin-bottom: 18px;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  color: rgba(23, 19, 16, 0.64);
+  font-size: 13px;
+}
+
+.sources a {
+  padding: 8px 10px;
+  border: 1px solid rgba(23, 19, 16, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 249, 239, 0.62);
+}
+
 @media (max-width: 1120px) {
   .film-shade {
     background:
@@ -786,6 +1032,30 @@ main {
 
   .closing p {
     font-size: 16px;
+  }
+
+  .study-grid,
+  .study-split,
+  .route-grid,
+  .tech-block {
+    grid-template-columns: 1fr;
+  }
+
+  .study-hero h2,
+  .study-split h2,
+  .route-head h2,
+  .tech-block h2,
+  .soft-close h2 {
+    font-size: clamp(34px, 10vw, 48px);
+  }
+
+  .route-card {
+    min-height: auto;
+  }
+
+  .tech-block,
+  .soft-close {
+    border-radius: 8px;
   }
 }
 
